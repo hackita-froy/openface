@@ -1,0 +1,19 @@
+docker run -p 9000:9000 -t -i -v $PWD:/openface openface /bin/bash
+
+./demos/compare.py images/examples/{lennon*,clapton*}
+
+path to code: /openface/code/openface
+
+path to nli_faces: /openface/data/nli_faces
+
+path to examples: /openface/code/openface/images/examples
+
+path-to-raw-data: /openface/code/openface
+
+path-to-aligned-data: /openface/data/nli_faces_aligned
+
+feature-directory: /openface/data/nli_faces_feats
+
+for N in {1..8}; do ./util/align-dlib.py /openface/code/openface align affine /openface/data/nli_faces_aligned --size 96 & done
+
+./batch-represent/main.lua -outDir /openface/data/nli_faces_feats -data /openface/data/nli_faces_aligned
