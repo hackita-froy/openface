@@ -29,9 +29,23 @@ limitations under the License.
     <body>
         <div class="container">
             <div class="header">
-                <video id="videoel" width="400" height="300"
-                       preload="auto" loop></video>
-                <div id="detectedFaces"></div>
+                <ul class='tabs'>
+                    <li class='tab-link' data-tab='tab-preview'
+                        id='tab-preview-button'>
+                        Preview
+                    </li>
+                    <li class='tab-link current' data-tab='tab-annotated'
+                        id='tab-annotated-button'>
+                        Annotated
+                    </li>
+                </ul>
+                <div id='tab-preview' class='tab-content'>
+                    <video id="videoel" width="400" height="300"
+                           preload="auto" loop></video>
+                </div>
+                <div id='tab-annotated' class='tab-content current'>
+                    <div id="detectedFaces"></div>
+                </div>
             </div>
             <div class="content">
                 <h2>People in Video</h2>
@@ -175,6 +189,18 @@ limitations under the License.
     <script src="js/openface-demo.js"></script>
     <script type="text/javascript">
      registerHbarsHelpers();
+
+     function makeTabActive(id) {
+         $('ul.tabs li').removeClass('current');
+         $('.tab-content').removeClass('current');
+
+         $("#"+id).addClass('current');
+         $("#"+id+"-button").addClass('current');
+     }
+
+     $('ul.tabs li').click(function(){
+         makeTabActive($(this).attr('data-tab'));
+	   });
 
      var vid = document.getElementById('videoel'),
          vidReady = false;

@@ -2,13 +2,14 @@
 
 <center>
 *Free and open source face recognition with
-Google's FaceNet deep neural network.*
+deep neural networks.*
 </center>
 
 ---
 
-OpenFace is a Python and [Torch](http://torch.ch) implementation of the CVPR
-2015 paper
+OpenFace is a Python and [Torch](http://torch.ch) implementation of
+face recognition with deep neural networks and is based on
+the CVPR 2015 paper
 [FaceNet: A Unified Embedding for Face Recognition and Clustering](http://www.cv-foundation.org/openaccess/content_cvpr_2015/app/1A_089.pdf)
 by Florian Schroff, Dmitry Kalenichenko, and James Philbin at Google.
 Torch allows the network to be executed on a CPU or with CUDA.
@@ -31,6 +32,14 @@ Carnegie Mellon University.**
 
 ---
 
+This research was supported by the National Science Foundation (NSF)
+under grant number CNS-1518865.  Additional support
+was provided by the Intel Corporation, Google, Vodafone, NVIDIA, and the
+Conklin Kistler family fund.  Any opinions, findings, conclusions or
+recommendations expressed in this material are those of the authors
+and should not be attributed to their employers or funding sources.
+
+---
 
 ### Isn't face recognition a solved problem?
 No! Accuracies from research papers have just begun to surpass
@@ -100,20 +109,25 @@ image of Sylvestor Stallone from the publicly available
 
 # Citations
 
-[![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.32041.svg)](http://dx.doi.org/10.5281/zenodo.32041)
-
-Please cite this repository if you use this in academic works.
-
+The following is a [BibTeX](http://www.bibtex.org/)
+and plaintext reference
+for the OpenFace GitHub repository.
+The reference may change in the future.
+The BibTeX entry requires the `url` LaTeX package.
 
 ```
 @misc{amos2015openface,
+    title        = {{OpenFace: Face Recognition with Deep Neural Networks}},
     author       = {Amos, Brandon and Harkes, Jan and Pillai, Padmanabhan and Elgazzar, Khalid and Satyanarayanan, Mahadev},
-    title        = {OpenFace 0.1.1: Face recognition with Google's FaceNet deep neural network},
-    month        = oct,
-    year         = 2015,
-    doi          = {10.5281/zenodo.32148},
-    url          = {http://dx.doi.org/10.5281/zenodo.32148}
+    howpublished = {\url{http://github.com/cmusatyalab/openface}},
+    note         = {Accessed: 2015-11-11}
 }
+
+Brandon Amos, Jan Harkes, Padmanabhan Pillai, Khalid Elgazzar,
+and Mahadev Satyanarayanan.
+OpenFace: Face Recognition with Deep Neural Networks.
+http://github.com/cmusatyalab/openface.
+Accessed: 2015-11-11.
 ```
 
 # Acknowledgements
@@ -134,9 +148,6 @@ Please cite this repository if you use this in academic works.
 + [Soumith Chintala](https://github.com/soumith) for
   help with the [fbcunn](https://github.com/facebook/fbcunn)
   example code.
-+ NVIDIA's academic
-  [hardware grant program](https://developer.nvidia.com/academic_hw_seeding)
-  for providing the Tesla K40 used to train the model.
 + [Davis King's](https://github.com/davisking) [dlib](https://github.com/davisking/dlib)
   library for face detection and alignment.
 + Zhuo Chen, Kiryong Ha, Wenlu Hu,

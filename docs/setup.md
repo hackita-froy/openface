@@ -3,12 +3,15 @@ The following instructions are for Linux and OSX only.
 Please contribute modifications and build instructions if you
 are interested in running this on other operating systems.
 
-We strongly recommend using the [Docker](https://www.docker.com/)
-container unless you are experienced with building
-Linux software from source.
-
-Also note that in OSX, you may have to change the hashbangs
-from `python2` to `python`.
++ We strongly recommend using the [Docker](https://www.docker.com/)
+  container unless you are experienced with building
+  Linux software from source.
++ In OSX, you may have to change the hashbangs
+  from `python2` to `python`.
++ OpenFace has been tested in Ubuntu 14.04 and OSX 10.10
+  and may not work well on other distributions.
+  Please let us know of any challenges you had to overcome
+  getting OpenFace to work on other distributions.
 
 ## Warning for architectures other than 64-bit x86
 See [#42](https://github.com/cmusatyalab/openface/issues/42).
@@ -119,12 +122,14 @@ if you are unable to resolve this.
 
 ### Torch
 Install [Torch](http://torch.ch) from the instructions on their website
-and install the [dpnn](https://github.com/nicholas-leonard/dpnn)
-and [nn](https://github.com/torch/nn) libraries with
-`luarocks install dpnn` and `luarocks install nn`.
+and install the dependencies with `luarocks install`.
 
-If you want CUDA support, also install
-[cudnn.torch](https://github.com/soumith/cudnn.torch).
++ [dpnn](https://github.com/nicholas-leonard/dpnn): `luarocks install dpnn`
++ [nn](https://github.com/torch/nn): `luarocks install nn`
++ [optim](https://github.com/torch/optim): `luarocks install optim`
++ [csvigo](https://github.com/clementfarabet/lua---csv): `luarocks install csvigo`
++ If you want CUDA support, also install
+  [cudnn.torch](https://github.com/soumith/cudnn.torch)
 
 At this point, the command-line program `th` should
 be available in your shell.

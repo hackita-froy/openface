@@ -12,121 +12,44 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+testLogger = optim.Logger(paths.concat(opt.save, 'test.log'))
 
--- This code samples images and trains a triplet network with the
--- following steps, which are referenced inline.
---
--- [Step 1]
--- Sample at most opt.peoplePerBatch * opt.imagesPerPerson
--- images by choosing random people and images from the
--- training set.
---
--- [Step 2]
--- Compute the embeddings of all of these images by doing forward
--- passs with the current state of a network.
--- This is done offline and the network is not modified.
--- Since not all of the images will fit in GPU memory, this is
--- split into minibatches.
---
--- [Step 3]
--- Select the semi-hard triplets as described in the FaceNet paper.
---
--- [Step 4]
--- Google is able to do a single forward and backward pass to process
--- all the triplets and update the network's parameters at once since
--- they use a distributed system.
--- With a memory-limited GPU, OpenFace uses smaller mini-batches and
--- does many forward and backward passes to iteratively update the
--- network's parameters.
---
---
---
--- Some other useful references for models with shared weights are:
---
---  1. Weinberger, K. Q., & Saul, L. K. (2009).
---     Distance metric learning for large margin
---     nearest neighbor classification.
---     The Journal of Machine Learning Research, 10, 207-244.
---
---     http://machinelearning.wustl.edu/mlpapers/paper_files/jmlr10_weinberger09a.pdf
---
---
---     Citation from the FaceNet paper on their motivation for
---     using the triplet loss.
---
---
---  2. Chopra, S., Hadsell, R., & LeCun, Y. (2005, June).
---     Learning a similarity metric discriminatively, with application
---     to face verification.
---     In Computer Vision and Pattern Recognition, 2005. CVPR 2005.
---     IEEE Computer Society Conference on (Vol. 1, pp. 539-546). IEEE.
---
---     http://yann.lecun.com/exdb/publis/pdf/chopra-05.pdf
---
---
---     The idea is to just look at pairs of images at a time
---     rather than triplets, which they train with two networks
---     in parallel with shared weights.
---
---  3. Hoffer, E., & Ailon, N. (2014).
---     Deep metric learning using Triplet network.
---     arXiv preprint arXiv:1412.6622.
---
---     http://arxiv.org/abs/1412.6622
---
---
---     Not used in OpenFace or FaceNet, but another view of triplet
---     networks that provides slightly more details about training using
---     three networks with shared weights.
---     The code uses Torch and is available on GitHub at
---     https://github.com/eladhoffer/TripletNet
-
-require 'optim'
-require 'fbnn'
-require 'image'
-
-paths.dofile("OpenFaceOptim.lua")
-
-
-local optimMethod = optim.adadelta
-local optimState = {} -- Use for other algorithms like SGD
-local optimator = OpenFaceOptim(model, optimState)
-
-trainLogger = optim.Logger(paths.concat(opt.save, 'train.log'))
+local testDataIterator = function()
+   testLoader:reset()
+   return function() return testLoader:get_batch(false) end
+end
 
 local batchNumber
 local triplet_loss
+local timer = torch.Timer()
 
-function train()
-   print('==> doing epoch on training data:')
+function test()
+   print('==> doing epoch on validation data:')
    print("==> online epoch # " .. epoch)
 
    batchNumber = 0
    cutorch.synchronize()
+   timer:reset()
 
-   -- set the dropouts to training mode
-   model:training()
-   model:cuda() -- get it back on the right GPUs.
+   model:evaluate()
+   model:cuda()
 
-   local tm = torch.Timer()
    triplet_loss = 0
-
    local i = 1
    while batchNumber < opt.epochSize do
-      -- queue jobs to data-workers
       donkeys:addjob(
          function()
-            -- [Step 1]: Sample people/images from the dataset.
             local inputs, numPerClass = trainLoader:samplePeople(opt.peoplePerBatch,
                                                                  opt.imagesPerPerson)
             inputs = inputs:float()
             numPerClass = numPerClass:float()
             return sendTensor(inputs), sendTensor(numPerClass)
          end,
-         trainBatch
+         testBatch
       )
       if i % 5 == 0 then
          donkeys:synchronize()
+         collectgarbage()
       end
       i = i + 1
    end
@@ -134,45 +57,27 @@ function train()
    donkeys:synchronize()
    cutorch.synchronize()
 
-   triplet_loss = triplet_loss / batchNumber
-
-   trainLogger:add{
-      ['avg triplet loss (train set)'] = triplet_loss,
+   triplet_loss = triplet_loss / opt.testEpochSize
+   testLogger:add{
+      ['avg triplet loss (test set)'] = triplet_loss
    }
-   print(string.format('Epoch: [%d][TRAINING SUMMARY] Total Time(s): %.2f\t'
+   print(string.format('Epoch: [%d][TESTING SUMMARY] Total Time(s): %.2f \t'
                           .. 'average triplet loss (per batch): %.2f',
-                       epoch, tm:time().real, triplet_loss))
+                       epoch, timer:time().real, triplet_loss))
    print('\n')
 
-   collectgarbage()
 
-   local function sanitize(net)
-      net:apply(function (val)
-            for name,field in pairs(val) do
-               if torch.type(field) == 'cdata' then val[name] = nil end
-               if name == 'homeGradBuffers' then val[name] = nil end
-               if name == 'input_gpu' then val['input_gpu'] = {} end
-               if name == 'gradOutput_gpu' then val['gradOutput_gpu'] = {} end
-               if name == 'gradInput_gpu' then val['gradInput_gpu'] = {} end
-               if (name == 'output' or name == 'gradInput')
-               and torch.type(field) == 'torch.CudaTensor' then
-                  cutorch.withDevice(field:getDevice(), function() val[name] = field.new() end)
-               end
-            end
-      end)
-   end
-   sanitize(model)
-   torch.save(paths.concat(opt.save, 'model_' .. epoch .. '.t7'),
-              model.modules[1]:float())
-   torch.save(paths.concat(opt.save, 'optimState_' .. epoch .. '.t7'), optimState)
-   collectgarbage()
-end -- of train()
+end
+
+local inputsCPU = torch.FloatTensor()
+local inputs = torch.CudaTensor()
 
 local inputsCPU = torch.FloatTensor()
 local numPerClass = torch.FloatTensor()
 
 local timer = torch.Timer()
-function trainBatch(inputsThread, numPerClassThread)
+
+function testBatch(inputsThread, numPerClassThread)
    if batchNumber >= opt.epochSize then
       return
    end
@@ -182,14 +87,15 @@ function trainBatch(inputsThread, numPerClassThread)
    receiveTensor(inputsThread, inputsCPU)
    receiveTensor(numPerClassThread, numPerClass)
 
-   -- [Step 2]: Compute embeddings.
+   -- inputs:resize(inputsCPU:size()):copy(inputsCPU)
+
    local numImages = inputsCPU:size(1)
    local embeddings = torch.Tensor(numImages, 128)
    local singleNet = model.modules[1]
    local beginIdx = 1
    local inputs = torch.CudaTensor()
    while beginIdx <= numImages do
-      local endIdx = math.min(beginIdx+opt.batchSize-1, numImages)
+      local endIdx = math.min(beginIdx+opt.testBatchSize-1, numImages)
       local range = {{beginIdx,endIdx}}
       local sz = inputsCPU[range]:size()
       inputs:resize(sz):copy(inputsCPU[range])
@@ -200,7 +106,6 @@ function trainBatch(inputsThread, numPerClassThread)
    end
    assert(beginIdx - 1 == numImages)
 
-   -- [Step 3]: Select semi-hard triplets.
    local numTrips = numImages - opt.peoplePerBatch
    local as = torch.Tensor(numTrips, inputs:size(2),
                            inputs:size(3), inputs:size(4))
@@ -262,7 +167,6 @@ function trainBatch(inputsThread, numPerClassThread)
    print(('  + (nRandomNegs, nTrips) = (%d, %d)'):format(nRandomNegs, numTrips))
 
 
-   -- [Step 4]: Upate network parameters.
    local beginIdx = 1
    local asCuda = torch.CudaTensor()
    local psCuda = torch.CudaTensor()
@@ -278,21 +182,21 @@ function trainBatch(inputsThread, numPerClassThread)
 
    -- TODO: Should be <=, but batches with just one image cause errors.
    while beginIdx < numTrips do
-      local endIdx = math.min(beginIdx+opt.batchSize, numTrips)
+      local endIdx = math.min(beginIdx+opt.testBatchSize, numTrips)
 
       local range = {{beginIdx,endIdx}}
       local sz = as[range]:size()
       asCuda:resize(sz):copy(as[range])
       psCuda:resize(sz):copy(ps[range])
       nsCuda:resize(sz):copy(ns[range])
-      local err, outputs = optimator:optimizeTriplet(optimMethod,
-                                                     {asCuda, psCuda, nsCuda},
-                                                     criterion)
+
+      local output = model:forward({asCuda, psCuda, nsCuda})
+      local err = criterion:forward(output)
 
       cutorch.synchronize()
       batchNumber = batchNumber + 1
-      print(('Epoch: [%d][%d/%d]\tTime %.3f\ttripErr %.2e'):format(
-            epoch, batchNumber, opt.epochSize, timer:time().real, err))
+      print(string.format('Epoch: [%d][%d/%d] Triplet Loss: %.2f',
+                          epoch, batchNumber, opt.testEpochSize, err))
       timer:reset()
       triplet_loss = triplet_loss + err
 
