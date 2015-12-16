@@ -5,16 +5,15 @@ import random
 import sys
 import pickle
 import loopTimer as lt
+import json
+import argparse
+
 # from pathlib import Path
 
 # logging.basicConfig(level=logging.INFO)
 # logger = logging.getLogger(__name__)
 
-dataPath = '/openface/data/nli_faces/'
-processedFname = 'processed.pkl'
-repFname = 'repsDBase.pkl'
-failFname = 'failDBase.pkl'
-startTime = None
+# dataPath = '/openface/data/nli_faces/'
 
 
 def walkAndCalcReps(root_dir):
@@ -23,12 +22,17 @@ def walkAndCalcReps(root_dir):
     Traverses all sub directories of the given root
     Saves to db if portrait
     """
-    global processedFname
-    global repFname, failFname
+    processedFname = os.path.join(root_dir,'processed.pkl')
+    repFname = os.path.join(root_dir,'repsDBase.pkl')
+    repFnameOldFmt = os.path.join(root_dir,'repsDBaseOldFmt.pkl')
+    failFname = os.path.join(root_dir,'failDBase.pkl')
+    repFnameJson = os.path.join(root_dir,'repsDBase.json')
 
-    processedFname = os.path.join(dataPath,processedFname)
-    repFname = os.path.join(dataPath,repFname)
-    failFname = os.path.join(dataPath,failFname)
+    startTime = None
+
+    # processedFname = os.path.join(root_dir,processedFname)
+    # repFname = os.path.join(root_dir,repFname)
+    # failFname = os.path.join(root_dir,failFname)
 
     processedList = []
     if os.path.isfile(processedFname):
@@ -47,27 +51,33 @@ def walkAndCalcReps(root_dir):
     # print repFname
     # print
 
-    dirs = [s for s in os.listdir(root_dir) if s.lower().startswith('ie')]
+    # dirs = [s for s in os.listdir(root_dir) if s.lower().startswith('ie')]
 
     # print '********'
     # print dirs
     # print '********'
 
-    nDirs = len(dirs)
-    iDir = 0
+    # nDirs = len(dirs)
+    # iDir = 0
 
-    ts = lt.resetTimer(nDirs,'Going over NLI dirs!')
+    # first walk - to get the number of files
+    nFiles = 0
+    for root, dirs, files in os.walk(root_dir, topdown=True):
+        nFiles += len([f for f in files if f.lower().endswith(('.jpg', '.png', '.tif'))])
+
+
+    ts = lt.resetTimer(nFiles,'Analyzing images!', percentile=1.0)
+
+    iFile = 0
 
     for root, dirs, files in os.walk(root_dir, topdown=True):
 
         # print "***" + root + "***"
         # print files
 
-        ent = root.split('/')[-1]
-
-        if not ent.lower().startswith(r'ie'):
-
-            continue
+        ent = root.split(root_dir)[-1]
+        if ent.startswith(r'/'):
+            ent = ent[1:]
 
         print "-----"  + ent + "-----" #+ str(ent.lower().startswith(r'ie'))
 
@@ -77,9 +87,9 @@ def walkAndCalcReps(root_dir):
             key = os.path.join(ent, name)
             # print key
 
-            if key in processedList:
-
-                continue
+            # if key in processedList:
+            #
+            #     continue
 
             # print "=====calculating rep====="
 
@@ -90,6 +100,11 @@ def walkAndCalcReps(root_dir):
                 continue
 
             rep, err = getImgRep(fname)
+
+            iFile += 1
+
+            lt.sampleTimer(iFile ,ts)
+
 
             if rep is not None:
 
@@ -102,24 +117,19 @@ def walkAndCalcReps(root_dir):
             processedList.append(key)
 
         pickle.dump(repDict,open(repFname,'w'),pickle.HIGHEST_PROTOCOL)
+        pickle.dump(repDict,open(repFnameOldFmt, 'w'))
 
         pickle.dump(failDict,open(failFname,'w'))
 
         pickle.dump(processedList,open(processedFname,'w'))
 
-        lt.sampleTimer(iDir,ts)
+    repDictJson = {k:list(v) for k,v in repDict.iteritems()}
 
-        iDir = iDir + 1
-
-
-            #if is_port[0]:
-                # repo.save_portrait_to_db(os.path.join(root, name), is_port[1])
-                # logger.info("Portrait! %s" % os.path.join(root, name))
-            # logger.error("NOT Portrait! %s" % os.path.join(root, name))
+    f = open(repFnameJson,'w')
+    f.write(json.dumps(repDictJson))
+    f.close()
 
 
-        # for name in dirs:
-        #     print(os.path.join(root, name))
 
 def getImgRep(fname):
     """Return a tuple (is_portrait, portrait_bounding_box)"""
@@ -142,14 +152,11 @@ def getImgRep(fname):
 
 if __name__ == "__main__":
 
-    walkAndCalcReps(dataPath)
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument('root_dir', type=str, nargs=1, help="Absolute path to dir with images.")
 
-    # for fname in fileList:
-    #     print fname
-    #     try:
-    #         rep = getFaceRep.getRep(fname)
-    #     except Exception as e:
-    #         print "got this error:", str(e) #sys.exc_info()
+    args = parser.parse_args()
 
-    # firstShot('/openface/code/openface/')
+    walkAndCalcReps(args.root_dir[0])
+

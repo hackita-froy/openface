@@ -21,7 +21,7 @@ modelDir = os.path.join(fileDir, '..', 'models')
 dlibModelDir = os.path.join(modelDir, 'dlib')
 openfaceModelDir = os.path.join(modelDir, 'openface')
 
-print dlibModelDir
+# print dlibModelDir
 
 # parser = argparse.ArgumentParser()
 
@@ -30,7 +30,7 @@ print dlibModelDir
 # parser.add_argument('--dlibFaceMean', type=str, help="Path to dlib's face predictor.",
 #                    default=os.path.join(dlibModelDir, "mean.csv"))
 dlibFaceMean = os.path.join(dlibModelDir, "mean.csv")
-print dlibFaceMean
+# print dlibFaceMean
 
 # parser.add_argument('--dlibFacePredictor', type=str, help="Path to dlib's face predictor.",
 #                    default=os.path.join(dlibModelDir, "shape_predictor_68_face_landmarks.dat"))
@@ -66,7 +66,7 @@ from openface.alignment import NaiveDlib  # Depends on dlib.
 #     print("Argument parsing and loading libraries took {} seconds.".format(
 #         time.time() - start))
 
-print 123
+# print 123
 start = time.time()
 align = NaiveDlib(dlibFaceMean, dlibFacePredictor)
 net = openface.TorchWrap(networkModel, imgDim=imgDim, cuda=cuda)
@@ -100,7 +100,7 @@ def getRep(imgPath):
 
     start = time.time()
 
-    print "GOT ALIGNED FACE!!!"
+    # print "GOT ALIGNED FACE!!!"
 
     rep = net.forwardImage(alignedFace)
     # if args.verbose:
