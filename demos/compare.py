@@ -76,6 +76,12 @@ if args.verbose:
     print("Loading the dlib and OpenFace models took {} seconds.".format(
         time.time() - start))
 
+print "dlibFaceMean: " + args.dlibFaceMean
+print "dlibFacePredictor: " + args.dlibFacePredictor
+print "networkModel: " + args.networkModel
+print "cuda: " + str(args.cuda)
+
+
 
 def getRep(imgPath):
     if args.verbose:
