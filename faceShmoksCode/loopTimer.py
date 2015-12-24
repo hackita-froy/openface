@@ -1,17 +1,31 @@
 import time
 
-def resetTimer(nIter, tag, percentile=10.0):
+def resetTimer(nIter, tag, percentile=10.0, dt=1.0, byIterOrTime='iter'):
 
     startTime = time.time()
 
     assert type(nIter) == type(1)
     assert type(tag) == type('str')
 
-    show_freq = max(round(percentile/100.0*nIter),1)
+    assert type(byIterOrTime) == str
+    byIterOrTime = byIterOrTime.lower()
+    assert byIterOrTime=='iter' or byIterOrTime=='time'
 
-    return {'startTime':startTime, 'nIter':float(nIter), 'tag':tag, 'show_freq':show_freq}
+    show_counts = max(round(percentile/100.0*nIter),1)
+
+    return {'startTime':startTime,
+            'nIter':float(nIter),
+            'tag':tag,
+            'show_counts':show_counts,
+            'dt':float(dt),
+            'byIterOrTime':byIterOrTime,
+            'lastTime': startTime}
+
 
 def sampleTimer(iIter, timerDict):
+
+    # print iIter
+    # print timerDict
 
     assert type(iIter) == type(1)
 
@@ -20,7 +34,10 @@ def sampleTimer(iIter, timerDict):
     curTime = time.time()
     startTime = timerDict['startTime']
     nIter = timerDict['nIter']
-    show_freq = timerDict['show_freq']
+    show_counts = timerDict['show_counts']
+    byIterOrTime = timerDict['byIterOrTime']
+    lastTime = timerDict['lastTime']
+    dt = timerDict['dt']
 
     elpsTime = curTime - startTime
 
@@ -28,7 +45,22 @@ def sampleTimer(iIter, timerDict):
 
     togoTime = totTime - elpsTime
 
-    if iIter % show_freq == 0:
-        print timerDict['tag'] + \
-              " done: {0} out of {1} ({2:3.2%})".format(iIter, nIter, float(iIter)/nIter) + \
-              ", elapsed:{0:.0f}s, to go:{1:.0f}s, tot projected:{2:.0f}s".format(round(elpsTime), round(togoTime), round(totTime))
+    msg = timerDict['tag'] + \
+        " done: {0} out of {1} ({2:3.2%})".format(iIter, nIter, float(iIter)/nIter) + \
+        ", elapsed:{0:.0f}s, to go:{1:.0f}s, tot projected:{2:.0f}s".format(round(elpsTime), round(togoTime), round(totTime))
+
+    if byIterOrTime=='iter':
+
+        if iIter % show_counts == 0:
+            print msg
+
+    elif byIterOrTime=='time':
+
+        if curTime - lastTime >= dt:
+
+            print msg
+            timerDict['lastTime'] = curTime
+
+        return  timerDict
+
+

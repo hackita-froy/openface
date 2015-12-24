@@ -66,7 +66,7 @@ def walkAndCalcReps(root_dir):
         nFiles += len([f for f in files if f.lower().endswith(('.jpg', '.png', '.tif'))])
 
 
-    ts = lt.resetTimer(nFiles,'Analyzing images!', percentile=1.0)
+    ts = lt.resetTimer(nFiles,'Analyzing images!', byIterOrTime='time', dt=5)
 
     iFile = 0
 
@@ -103,7 +103,7 @@ def walkAndCalcReps(root_dir):
 
             iFile += 1
 
-            lt.sampleTimer(iFile ,ts)
+            ts = lt.sampleTimer(iFile ,ts)
 
 
             if rep is not None:
