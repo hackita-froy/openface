@@ -1,3 +1,8 @@
+docker run -p 9000:9000 -t -i -v ~:/openface openface /bin/bash
+
+under the docker, to get reps:
+python openface/code/openface/faceShmoksCode/analyzeImgs.py openface/data/dir_with_pics
+
 docker run -p 9000:9000 -t -i -v $PWD:/openface openface /bin/bash
 
 ./demos/compare.py images/examples/{lennon*,clapton*}
