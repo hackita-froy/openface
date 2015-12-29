@@ -42,10 +42,18 @@ def dictToArr(D):
 def main():
 
     import pickle as pkl
+    import loopTimer
 
     dbFname = '/home/michael/data/nli_faces/repsDBase.pkl'
 
     qFname = '/home/michael/data/nli_faces_part/repsDBase.pkl'
+    qFname = '/home/michael/data/zalmania_images/repsDBase.pkl'
+
+    dbFname =   '/home/michael/data/nli_faces_part/repsDBase.pkl'
+    qFname = '/home/michael/data/nli_faces_part/repsDBase.pkl'
+
+    dbFname = '/home/michael/data/nli_faces/repsDBase.pkl'
+    qFname = '/home/michael/data/nli_faces/repsDBase.pkl'
 
     D = pkl.load(open(dbFname,'r'))
     Q = pkl.load(open(qFname,'r'))
@@ -53,14 +61,27 @@ def main():
     schwArr, schwKeys = dictToArr(D)
     qArr, qKeys= dictToArr(Q)
 
+    RES = {}
+
+    RES['source'] = dbFname
+    RES['queries'] = qFname
+
+
+    lt = loopTimer.resetTimer(len(Q),'comparing faces!',percentile=1.0)
 
     for ii in xrange(len(qKeys)):
 
         k, scores = getClosestNbrs(schwArr, qArr[ii,:])
 
-        print "query: {0}, closest match: {1}, score: {2}".format(qKeys[ii],schwKeys[k[0]], scores[0])
+        nbr = 1
 
+        RES[qKeys[ii]] = (schwKeys[k[nbr]], scores[nbr])
 
+        print "query: {0}, closest match: {1}, score: {2}".format(qKeys[ii],schwKeys[k[nbr]], scores[nbr])
+
+        loopTimer.sampleTimer(ii, lt)
+
+    pkl.dump(RES, open('/home/michael/data/cmpRes2.pkl','w'))
 
 if __name__ == "__main__":
 

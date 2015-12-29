@@ -1,8 +1,11 @@
-import time
+# -*- coding: utf-8 -*-
+
+
+from time import time, strftime, localtime, gmtime
 
 def resetTimer(nIter, tag, percentile=10.0, dt=1.0, byIterOrTime='iter'):
 
-    startTime = time.time()
+    startTime = time()
 
     assert type(nIter) == type(1)
     assert type(tag) == type('str')
@@ -31,7 +34,7 @@ def sampleTimer(iIter, timerDict):
 
     iIter = iIter + 1
 
-    curTime = time.time()
+    curTime = time()
     startTime = timerDict['startTime']
     nIter = timerDict['nIter']
     show_counts = timerDict['show_counts']
@@ -44,10 +47,14 @@ def sampleTimer(iIter, timerDict):
     totTime = elpsTime/iIter*nIter
 
     togoTime = totTime - elpsTime
+    
+    secFmt = lambda  s : strftime("%Hh:%Mm:%Ss",gmtime(s))
 
-    msg = timerDict['tag'] + \
-        " done: {0} out of {1} ({2:3.2%})".format(iIter, nIter, float(iIter)/nIter) + \
-        ", elapsed:{0:.0f}s, to go:{1:.0f}s, tot projected:{2:.0f}s".format(round(elpsTime), round(togoTime), round(totTime))
+
+    msg = strftime("%Y-%m-%d %H-%M-%S",localtime(time())) + '. ' +\
+        timerDict['tag'] + \
+        ". Done: {0} out of {1} ({2:3.2%})".format(int(iIter), int(nIter), float(iIter)/nIter) + \
+        ", elapsed:{0}, to go:{1}, tot projected:{2}".format(secFmt(elpsTime), secFmt(togoTime), secFmt(totTime))
 
     if byIterOrTime=='iter':
 
@@ -60,7 +67,3 @@ def sampleTimer(iIter, timerDict):
 
             print msg
             timerDict['lastTime'] = curTime
-
-        return  timerDict
-
-

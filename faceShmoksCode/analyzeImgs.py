@@ -103,7 +103,7 @@ def walkAndCalcReps(root_dir):
 
             iFile += 1
 
-            ts = lt.sampleTimer(iFile ,ts)
+            lt.sampleTimer(iFile ,ts)
 
 
             if rep is not None:
