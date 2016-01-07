@@ -4,6 +4,8 @@ import os
 import loopTimer
 import matplotlib.pyplot as plt
 from collections import Counter
+import pdb
+import metric_learn
 
 
 def isVector(x):
@@ -112,11 +114,19 @@ def produceReport(dbFname, qFname, cmpFun, savePath):
         loopTimer.sampleTimer(ii, lt)
 
 
-def testPerformance(DB, savePath, cmpFun = l2Dist, k=3000, numTh = 100, removeSingletons = True):
+def testPerformance(DB, savePath,
+                    cmpFun = l2Dist,
+                    k=100,
+                    numTh = 100,
+                    removeSingletons = True,
+                    title=''):
 
     if type(DB)==str:
 
         D = pkl.load(open(DB,'r'))
+        if title=='':
+            title = DB.split('/')[-2]
+
 
     elif type(DB)==dict:
 
@@ -195,7 +205,6 @@ def testPerformance(DB, savePath, cmpFun = l2Dist, k=3000, numTh = 100, removeSi
 
 
 
-
     plt.ion()
     plt.figure()
     plt.plot(FP,TP)
@@ -203,17 +212,26 @@ def testPerformance(DB, savePath, cmpFun = l2Dist, k=3000, numTh = 100, removeSi
     plt.xlabel('False positive rate')
     plt.ylabel('True positive rate')
     plt.grid()
+    plt.title(title + ": ROC")
+    plt.savefig(os.path.join(savePath, title + '_ROC.png'))
 
     if not removeSingletons:
         return
 
     print "Computing match stats"
 
-    matchRateMat = np.ndarray((N,k-1))
+    k = k+1
 
+    matchRateMat = np.ndarray((N,k-1))
+    cumMatchesMat = np.ndarray((N,k-1))
+
+    FM = np.ndarray((N))
+
+    CONSTR = ([],[],[],[])
 
     lt=loopTimer.resetTimer(N,'computing retrieval stats', dt=1, byIterOrTime='time')
     for ii in xrange(N):
+        # print ii
         curEnt = ents[ii]
 
         nbrIdx, scores = getMatches(DArr,DArr[ii,:],cmpFun=cmpFun,k=k)
@@ -221,31 +239,105 @@ def testPerformance(DB, savePath, cmpFun = l2Dist, k=3000, numTh = 100, removeSi
         scores = scores[1:]
 
         matchTF = np.array([curEnt==ents[idx] for idx in nbrIdx])
+        # pdb.set_trace()
         # print matchTF
 
-        expCounts = np.minimum(np.array(range(k-1))+1, float(counts[curEnt]))
+        expCounts = np.minimum(np.arange(k-1)+1, float(counts[curEnt]))
 
-        matchRate = np.cumsum(matchTF)/expCounts
+        cumMatches = np.cumsum(matchTF)
+        cumMatchesMat[ii,:] = cumMatches > 0
 
+        matchRate = cumMatches/expCounts
         matchRateMat[ii,:] = matchRate
+
+        haveMatch = np.any(matchTF)
+        # ITML
+        # [(Y[C[0][ii]],Y[C[1][ii]],Y[C[2][ii]],Y[C[3][ii]]) for ii in xrange(len(C[0]))]
+
+        FM[ii] = np.nan
+        if haveMatch:
+            FM[ii] = (np.arange(matchTF.size)[matchTF])[0]
+
+            # n_c = np.sum(matchTF)
+            # n_nc = np.sum(np.logical_not(matchTF))
+            #
+            # for i_match in range(n_c):
+            #
+            #     raise
+            #
+            #     source_same = np.array([ii]*n_c)
+            #     source_diff = np.array([ii]*n_nc)
+            #     id_same = nbrIdx[matchTF]
+            #     id_diff = nbrIdx[np.logical_not(matchTF)]
+            #
+            #
+            #     CONSTR[0].append(source_same)
+            #     CONSTR[0].append(source_same)
+
+
 
         loopTimer.sampleTimer(ii,lt)
 
-    plt.figure()
-    plt.subplot(2,1,1)
-    plt.plot(np.average(matchRateMat,axis=0))
-    plt.ylabel('average retrieval performance')
-    plt.grid()
+    # pdb.set_trace()
 
-    plt.subplot(2,1,2)
-    plt.plot(np.std(matchRateMat,axis=0))
-    plt.ylabel('std of retrieval performance')
+    x = np.arange(1,k)
+
+    plt.figure()
+    plt.subplot(3,1,1)
+    plt.plot(x,np.average(matchRateMat,axis=0))
+    plt.ylabel('average')
+    plt.grid()
+    plt.title(title + ": match rate")
+
+    plt.subplot(3,1,2)
+    plt.plot(x,np.std(matchRateMat,axis=0))
+    plt.ylabel('std')
     plt.xlabel('k')
     plt.grid()
 
-    plt.figure()
-    plt.plot(matchRateMat.T)
+    plt.subplot(3,1,3)
+    plt.plot(x,np.median(matchRateMat,axis=0))
+    plt.ylabel('median')
+    plt.xlabel('k')
     plt.grid()
+
+    plt.savefig(os.path.join(savePath, title + '_AMR.png'))
+
+    # pdb.set_trace()
+    plt.figure()
+    # plt.subplot(2,1,1)
+    # plt.plot(x, cumMatchesMat.T)
+    # plt.xlabel('k')
+    # plt.ylabel('got 1 match?')
+    #
+    # plt.subplot(2,1,2)
+    plt.plot(x, np.average(cumMatchesMat,axis=0))
+    plt.xlabel('k')
+    plt.ylabel('prob got 1 match?')
+    plt.title(title + ": probability of having at least one match")
+    plt.grid()
+    plt.savefig(os.path.join(savePath, title + '_matchProb.png'))
+
+
+    plt.figure()
+    plt.plot(x,matchRateMat.T)
+    plt.grid()
+    plt.xlabel('k')
+    plt.ylabel('match rate, unaveraged')
+    plt.title(title + ": raw retrieval performance")
+    plt.savefig(os.path.join(savePath, title + '_MR.png'))
+
+
+    FM = FM[np.logical_not( np.isnan(FM))]+1
+    plt.figure()
+    plt.hist(FM,bins=FM.max())
+    plt.title(title + ": first match position distribution")
+    plt.xlabel('First match position')
+    plt.ylabel('counts')
+
+    plt.savefig(os.path.join(savePath, title + '_FM.png'))
+
+
 
 
 
@@ -294,11 +386,12 @@ def main1():
 def main2():
 
     dbFname = '/home/michael/data/nli_faces/repsDBase.pkl'
-    # dbFname = '/home/michael/data/lfw/repsDBase.pkl'
+    # dbFname = '/home/michael/data/nli_faces_drScaling/repsDBase.pkl'
+    dbFname = '/home/michael/data/lfw/repsDBase.pkl'
 
 
 
-    testPerformance(dbFname, '')
+    testPerformance(dbFname, os.path.expanduser('~/results/'))
 
 if __name__ == "__main__":
 
