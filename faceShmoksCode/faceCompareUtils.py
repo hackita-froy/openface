@@ -68,16 +68,29 @@ def getMatches(repsArr, queryRep, cmpFun = l2Dist, k=5):
     return nbrIdx, scores[nbrIdx[:k]]
 
 
-def dictToArr(D):
+def processDict(D):
 
-    dKeys = D.keys()
+    DKeys = D.keys()
 
-    arr = np.ndarray((len(dKeys),len(D[dKeys[0]])))
+    arr = np.ndarray((len(DKeys), len(D[DKeys[0]])))
 
-    for ii in xrange(len(dKeys)):
-        arr[ii,:] = D[dKeys[ii]]
+    for ii in xrange(len(DKeys)):
+        arr[ii,:] = D[DKeys[ii]]
 
-    return arr, dKeys
+    ents = getEntsFromKeys(DKeys)
+
+    counts = getCounts(ents)
+
+
+    return arr, DKeys, ents, counts
+
+
+def getCounts(ents):
+    counts = Counter()
+    for ent in ents:
+        counts[ent] += 1
+    return counts
+
 
 def produceReport(dbFname, qFname, cmpFun, savePath):
 
@@ -100,8 +113,8 @@ def produceReport(dbFname, qFname, cmpFun, savePath):
     D = pkl.load(open(dbFname,'r'))
     Q = pkl.load(open(qFname,'r'))
 
-    DArr, DKeys = dictToArr(D)
-    qArr, qKeys= dictToArr(Q)
+    DArr, DKeys = processDict(D)
+    qArr, qKeys= processDict(Q)
 
     lt = loopTimer.resetTimer(len(Q),'comparing faces!',percentile=1.0,byIterOrTime='time', dt=1.)
 
@@ -113,12 +126,38 @@ def produceReport(dbFname, qFname, cmpFun, savePath):
 
         loopTimer.sampleTimer(ii, lt)
 
+def removeSingletons(D):
+
+    DKeys = D.keys()
+
+    ents = getEntsFromKeys(DKeys)
+
+    counts = getCounts(ents)
+
+    entAndKey = ((ents[ii], DKeys[ii]) for ii in range(len(DKeys)))
+
+
+    for ent, key in entAndKey:
+        if counts[ent] <= 1:
+            # print ent, key, ent in counts, key in D
+            del counts[ent]
+            del D[key]
+
+    return counts
+
+
+def getEntsFromKeys(DKeys):
+
+    ents = [key.split('/')[0] for key in DKeys]
+
+    return ents
+
 
 def testPerformance(DB, savePath,
                     cmpFun = l2Dist,
                     k=100,
                     numTh = 100,
-                    removeSingletons = True,
+                    mustRemoveSingletons = True,
                     title=''):
 
     if type(DB)==str:
@@ -138,36 +177,17 @@ def testPerformance(DB, savePath,
 
         raise
 
-    DArr, DKeys = dictToArr(D)
-
-    ents = [key.split('/')[0] for key in DKeys]
-
-
-    counts = Counter()
-
-    for ent in ents:
-
-        counts[ent]+=1
+    # DArr, DKeys = processDict(D)
+    #
+    # ents = [key.split('/')[0] for key in DKeys]
 
 
-    if removeSingletons:
+    if mustRemoveSingletons:
 
-        # print counts
+        removeSingletons(D)
 
-        NonSingletons = np.array([counts[ent] > 1 for ent in ents])
+    DArr, DKeys, ents, counts = processDict(D)
 
-        DArr = DArr[NonSingletons,:]
-        # DKeys = DKeys[NonSingletons]
-        DKeys = [DKeys[ii] for ii in range(len(D)) if NonSingletons[ii]]
-        ents = [ents[ii] for ii in range(len(D)) if NonSingletons[ii]]
-
-        D = {key:D[key] for key in DKeys}
-
-        # for k in DKeys:
-        #     if counts[k]<=1:
-        #         D.pop(k,None)
-
-        # ynt len(D), len(DKeys), DArr.shape, len(ents)
 
     N = len(D)
 
@@ -215,7 +235,7 @@ def testPerformance(DB, savePath,
     plt.title(title + ": ROC")
     plt.savefig(os.path.join(savePath, title + '_ROC.png'))
 
-    if not removeSingletons:
+    if not mustRemoveSingletons:
         return
 
     print "Computing match stats"
@@ -242,7 +262,7 @@ def testPerformance(DB, savePath,
         # pdb.set_trace()
         # print matchTF
 
-        expCounts = np.minimum(np.arange(k-1)+1, float(counts[curEnt]))
+        expCounts = np.minimum(np.arange(k-1)+1, float(counts[curEnt]-1))
 
         cumMatches = np.cumsum(matchTF)
         cumMatchesMat[ii,:] = cumMatches > 0
@@ -257,23 +277,6 @@ def testPerformance(DB, savePath,
         FM[ii] = np.nan
         if haveMatch:
             FM[ii] = (np.arange(matchTF.size)[matchTF])[0]
-
-            # n_c = np.sum(matchTF)
-            # n_nc = np.sum(np.logical_not(matchTF))
-            #
-            # for i_match in range(n_c):
-            #
-            #     raise
-            #
-            #     source_same = np.array([ii]*n_c)
-            #     source_diff = np.array([ii]*n_nc)
-            #     id_same = nbrIdx[matchTF]
-            #     id_diff = nbrIdx[np.logical_not(matchTF)]
-            #
-            #
-            #     CONSTR[0].append(source_same)
-            #     CONSTR[0].append(source_same)
-
 
 
         loopTimer.sampleTimer(ii,lt)
@@ -358,8 +361,8 @@ def main1():
     D = pkl.load(open(dbFname,'r'))
     Q = pkl.load(open(qFname,'r'))
 
-    schwArr, schwKeys = dictToArr(D)
-    qArr, qKeys= dictToArr(Q)
+    schwArr, schwKeys = processDict(D)
+    qArr, qKeys= processDict(Q)
 
     RES = {}
 
@@ -387,7 +390,7 @@ def main2():
 
     dbFname = '/home/michael/data/nli_faces/repsDBase.pkl'
     # dbFname = '/home/michael/data/nli_faces_drScaling/repsDBase.pkl'
-    dbFname = '/home/michael/data/lfw/repsDBase.pkl'
+    # dbFname = '/home/michael/data/lfw/repsDBase.pkl'
 
 
 
