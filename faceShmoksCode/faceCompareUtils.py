@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from collections import Counter
 import pdb
 import metric_learn
+from scipy.stats import hypergeom
 
 
 def isVector(x):
@@ -225,7 +226,20 @@ def testPerformance(DB, savePath,
 
 
 
-    plt.ion()
+    plt.ioff()
+    SMatNoSelf = SMat
+    for ii in xrange(SMatNoSelf.shape[0]):
+        SMatNoSelf[ii,ii]=False
+
+    c2c = scoreMat.ravel()[SMat.ravel()]
+    c2nc = scoreMat.ravel()[DMat.ravel()]
+
+    plt.figure()
+    plt.hist(c2c, bins=100, alpha = 0.4, normed=True)
+    plt.hist(c2nc, bins=100, alpha = 0.4, normed=True)
+    plt.legend(['c2c','c2nc'])
+    plt.savefig(os.path.join(savePath, title + '_dist_hist.png'))
+
     plt.figure()
     plt.plot(FP,TP)
     plt.title('ROC curve')
@@ -245,30 +259,42 @@ def testPerformance(DB, savePath,
     matchRateMat = np.ndarray((N,k-1))
     cumMatchesMat = np.ndarray((N,k-1))
 
-    FM = np.ndarray((N))
+    K=np.array([5,10,20,40])
+    # K=[5]
+    probScoresMat = np.ndarray((N, len(K)))
+
+    FM = np.ndarray(N)
 
     CONSTR = ([],[],[],[])
 
     lt=loopTimer.resetTimer(N,'computing retrieval stats', dt=1, byIterOrTime='time')
+
+    distsToMatch = []
+    distToNonMatch = []
+
     for ii in xrange(N):
         # print ii
         curEnt = ents[ii]
 
-        nbrIdx, scores = getMatches(DArr,DArr[ii,:],cmpFun=cmpFun,k=k)
+        nbrIdx, scores = getMatches(DArr,DArr[ii,:],cmpFun=cmpFun,k=100000)
         nbrIdx = nbrIdx[1:]
         scores = scores[1:]
 
         matchTF = np.array([curEnt==ents[idx] for idx in nbrIdx])
+
+        # pdb.set_trace()
+
+        probScoresMat[ii,:] = calcProbScore(matchTF,K)
         # pdb.set_trace()
         # print matchTF
 
         expCounts = np.minimum(np.arange(k-1)+1, float(counts[curEnt]-1))
 
-        cumMatches = np.cumsum(matchTF)
+        cumMatches = np.cumsum(matchTF[:k-1])
         cumMatchesMat[ii,:] = cumMatches > 0
 
         matchRate = cumMatches/expCounts
-        matchRateMat[ii,:] = matchRate
+        matchRateMat[ii,:] = matchRate[:k-1]
 
         haveMatch = np.any(matchTF)
         # ITML
@@ -282,6 +308,15 @@ def testPerformance(DB, savePath,
         loopTimer.sampleTimer(ii,lt)
 
     # pdb.set_trace()
+
+    plt.figure()
+    for i,kk in enumerate(K):
+        plt.subplot(len(K), 1, i+1)
+        plt.hist(probScoresMat[:,i].ravel(),100)
+        plt.title('prob score for k=' + str(kk))
+        plt.grid()
+    plt.savefig(os.path.join(savePath, title + '_prob_scores.png'))
+
 
     x = np.arange(1,k)
 
@@ -340,8 +375,24 @@ def testPerformance(DB, savePath,
 
     plt.savefig(os.path.join(savePath, title + '_FM.png'))
 
+    plt.show()
 
 
+def calcProbScore(matchTF, K):
+    n = sum(matchTF)
+    M = len(matchTF)
+
+    p = np.ndarray(len(K))
+
+    for ii,k in enumerate(K):
+
+        d = sum(matchTF[:k])
+
+        rv = hypergeom(M,n,k)
+
+        p[ii] = rv.pmf(d)
+
+    return p
 
 
 def main1():
@@ -390,7 +441,7 @@ def main2():
 
     dbFname = '/home/michael/data/nli_faces/repsDBase.pkl'
     # dbFname = '/home/michael/data/nli_faces_drScaling/repsDBase.pkl'
-    # dbFname = '/home/michael/data/lfw/repsDBase.pkl'
+    dbFname = '/home/michael/data/lfw/repsDBase.pkl'
 
 
 
