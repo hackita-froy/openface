@@ -6,9 +6,12 @@ import faceCompareUtils as fc
 import pickle as pkl
 import pdb
 import  loopTimer as lt
+import faceCompareUtils as fc
 
 
-def getResponsesToSelf(dbFname, outputPath, k=20):
+def getResponsesToSelf(dbFname, outputPath, K):
+
+    max_k = max(K)
 
     D = pkl.load(open(dbFname,'r'))
     title = dbFname.split('/')[-2]
@@ -28,6 +31,8 @@ def getResponsesToSelf(dbFname, outputPath, k=20):
 
     N = len(D)
 
+
+
     timer = lt.resetTimer(N, 'computing resposnses',dt=3,byIterOrTime='time')
 
     for ii in xrange(N):
@@ -44,57 +49,70 @@ def getResponsesToSelf(dbFname, outputPath, k=20):
 
         matchTF = np.array([curEnt==ents[idx] for idx in nbrIdx])
 
-        noCloseMatch = not any(matchTF[:k+1])
+        matchTF4RprtImg, matchesFnames = getMatchesFnamesAndLabels(DKeys, matchTF, max_k, nbrIdx)
 
-        if noCloseMatch:
+        expMathces = np.array([min(k, float(counts[curEnt]-1)) for k in K], dtype=float)
+        actMatches = np.array([sum(matchTF[:k]) for k in K], dtype=float)
 
-            # pdb.set_trace()
-
-            idx = (np.arange(len(nbrIdx))[matchTF])[0]
-
-            firstMatchIdx = nbrIdx[idx]
-
-            assert matchTF[idx]
-
-        nbrIdx = nbrIdx[:k+2]
-        matchTF = matchTF[:k+2]
-
-        if noCloseMatch:
-            nbrIdx[-1] = firstMatchIdx
-            matchTF[-1] = True
-
-        else:
-
-            nbrIdx = nbrIdx[:k+1]
-            matchTF = matchTF[:k+1]
+        corrMatchPrcnt = actMatches / expMathces*100.
+        # pdb.set_trace()
+        corrMatchPrcntStr = reduce(lambda a,b:a+', '+b,map(lambda s: "{0:.6g}".format(s),corrMatchPrcnt))
 
 
-
-
-        matchesFnames = [DKeys[nbr] for nbr in nbrIdx]
-
-        expMathces = min(k, float(counts[curEnt]-1))
-        actMatches = sum(matchTF[:k+1])
+        imgOutputFname = os.path.join(outputPath, curEnt + "_" + rawFnames[ii])
 
         print '-----' + os.path.join(queryPath, DKeys[ii] ) +'-----'
+
         IMG = makeReportImg(queryPath, DKeys[ii],
                           queryPath, matchesFnames,
-                          labels=matchTF)
+                          labels=matchTF4RprtImg)
+        plt.imsave(imgOutputFname, IMG)
 
-        # plt.ion()
-        # plt.imshow(IMG)
-        # plt.show()
-        # q=raw_input("boo")
 
-        # expCounts = np.minimum(np.arange(k-1)+1, float(counts[curEnt]-1))
-        correctMatchesPercent = actMatches / float(expMathces)*100
+        titlesLine, keysLine, scoresLine = makeReportText(queryPath, matchesFnames, scores[:max_k+1])
 
-        s = "{0:3.2f}".format(correctMatchesPercent).zfill(6)
+        probScores = fc.calcProbScore(matchTF,K)
+        probScoresStr = reduce(lambda a,b:a+', '+b,map(lambda s: "{0:.6g}".format(s),probScores))
 
-        outputFname = os.path.join(outputPath, s + '_' + curEnt + "_" + rawFnames[ii])
-        plt.imsave(outputFname, IMG)
+
+        a,b = os.path.splitext(imgOutputFname)
+        txtOutputFname = a + '.txt'
+        with open(txtOutputFname,'w') as f:
+            f.write(titlesLine + '\n')
+            f.write(keysLine + '\n')
+            f.write(scoresLine + '\n')
+            f.write(probScoresStr + '\n')
+            f.write(corrMatchPrcntStr + '\n')
+
+
+        # pdb.set_trace()
+
 
         lt.sampleTimer(ii, timer)
+
+
+def getMatchesFnamesAndLabels(DKeys, matchTF, max_k, nbrIdx):
+    noCloseMatch = not any(matchTF[:max_k + 1])
+    if noCloseMatch:
+        # pdb.set_trace()
+
+        idx = (np.arange(len(nbrIdx))[matchTF])[0]
+
+        firstMatchIdx = nbrIdx[idx]
+
+        assert matchTF[idx]
+    nbrIdx4RprtImg = nbrIdx[:max_k + 2]
+    matchTF4RprtImg = matchTF[:max_k + 2]
+    if noCloseMatch:
+        nbrIdx4RprtImg[-1] = firstMatchIdx
+        matchTF4RprtImg[-1] = True
+
+    else:
+
+        nbrIdx4RprtImg = nbrIdx[:max_k + 1]
+        matchTF4RprtImg = matchTF[:max_k + 1]
+    matchesFnames = [DKeys[nbr] for nbr in nbrIdx4RprtImg]
+    return matchTF4RprtImg, matchesFnames
 
 
 def genFnames(DKeys):
@@ -197,10 +215,12 @@ def main():
 
     dbasePath = '/home/michael/data/nli_faces_part/repsDBase.pkl'
     dbasePath = '/home/michael/data/nli_faces/repsDBase.pkl'
+    dbasePath = '/home/michael/data/lfw/repsDBase.pkl'
+
 
     outputPath = '/home/michael/results'
 
-    getResponsesToSelf(dbasePath, outputPath, k=20)
+    getResponsesToSelf(dbasePath, outputPath, K = np.array([5,10,20,40]))
 
 def sampleQ():
 

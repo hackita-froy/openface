@@ -395,6 +395,52 @@ def calcProbScore(matchTF, K):
     return p
 
 
+def splitTrainTest(Dict, testPrcnt, seed):
+
+    Dkeys = Dict.keys()
+
+    ents = getEntsFromKeys(Dkeys)
+
+    uniqueEnts = list(set(ents))
+    uniqueEnts.sort()
+
+    state = np.random.get_state()
+    np.random.seed(seed)
+    perm = np.random.permutation(len(uniqueEnts))
+    np.random.set_state(state)
+
+    divLoc = round(len(uniqueEnts)*testPrcnt)
+
+    testIdx= perm[:divLoc]
+    trainIdx = perm[divLoc:]
+
+    testDict = extractDictByUniqueEntIdx(Dict, testIdx)
+    trainDict = extractDictByUniqueEntIdx(Dict, trainIdx)
+
+    return trainDict, testDict
+
+
+def extractDictByUniqueEntIdx(Dict, subsIdx):
+
+    Dkeys = Dict.keys()
+
+    ents = getEntsFromKeys(Dkeys)
+
+    uniqueEnts = list(set(ents))
+
+    uniqueEnts.sort()
+
+    subsEnts = [uniqueEnts[ii] for ii in subsIdx]
+
+    subsMask = np.array([e in subsEnts for e in ents])
+
+    subsKeys = [Dkeys[ii] for ii in range(len(Dkeys)) if subsMask[ii]]
+
+    subsDict = {k: Dict[k] for k in subsKeys}
+
+    return subsDict
+
+
 def main1():
 
 
