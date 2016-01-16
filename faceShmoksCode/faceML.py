@@ -9,6 +9,7 @@ import metric_learn
 from scipy.stats import hypergeom
 import faceCompareUtils as fc
 from metric_learn import ITML
+from time import time, strftime, localtime
 
 
 def getConstraints(TD, k, thresh = 0.001):
@@ -43,6 +44,7 @@ def getConstraints(TD, k, thresh = 0.001):
         loopTimer.sampleTimer(ii, lt)
 
     M = probScoresMat <= thresh
+    # pdb.set_trace()
 
     termIdx = np.array([np.max(np.arange(k)[M[ii,:]]) if np.any(M[ii,:]) else np.nan for ii in xrange(nItems)])
 
@@ -145,6 +147,10 @@ def getMtxs(TD, k, probTH,
             convergence_threshold=0.001,
             gamma_v = np.logspace(-2,2,10)):
 
+    mtxFname = '/home/michael/results/matrices ' + strftime("%Y-%m-%d %H-%M-%S",localtime(time())) +'.pkl'
+
+    print "saving to: ", mtxFname
+
     A, B, C, D, DArr, DKeys, ents = getConstraints(TD, k, probTH)
 
     # pdb.set_trace()
@@ -172,7 +178,7 @@ def getMtxs(TD, k, probTH,
 
         np.save(fname, itml.metric())
 
-        pkl.dump(M, open('/home/michael/results/matrices.pkl','w'))
+        pkl.dump(M, open(mtxFname,'w'))
 
     return M
 
@@ -192,9 +198,60 @@ def main():
     # A, B, C, D = getConstraints(trainDict,40, 0.05)
 
     getMtxs(trainDict, 40, 0.05,
-            max_iters=100,
-            convergence_threshold=0.01,
-            gamma_v = np.logspace(2,-2,10))
+            max_iters=1000,
+            convergence_threshold=0.001,
+            gamma_v = np.logspace(-2,2,10))
+
+def test():
+
+    from scipy.linalg import sqrtm
+
+
+    dbFname = '/home/michael/data/nli_faces/repsDBase.pkl'
+    # dbFname = '/home/michael/data/nli_faces_drScaling/repsDBase.pkl'
+    # dbFname = '/home/michael/data/lfw/repsDBase.pkl'
+
+    D = pkl.load(open(dbFname,'r'))
+
+    trainDict, testDict = fc.splitTrainTest(D, .30, 14081979)
+
+    MD = pkl.load(open('/home/michael/results/matrices.pkl','r'))
+
+    gammas = MD.keys()
+    gammas.sort()
+    gammas = gammas[:1]
+    # gammas=gammas[-1::-1]
+
+    for ii, gamma in enumerate(gammas):
+
+        M = MD[gamma]
+
+        L = sqrtm(M)
+
+        assert max(abs((L-L.T).ravel())) < 1e-6
+
+        cmpFun = lambda x,y: fc.mhDist(x,y,L)
+
+        savePath = os.path.expanduser('~/results/train_test/')
+
+        title = 'nli_faces_train_gamma={:.5g}'.format(gamma)
+
+        fc.testPerformance(trainDict, savePath,
+                            cmpFun = cmpFun,
+                            k=100,
+                            numTh = 100,
+                            mustRemoveSingletons = True,
+                            title=title)
+
+
+        title = 'nli_faces_test_gamma={:.5g}'.format(gamma)
+
+        fc.testPerformance(testDict, savePath,
+                            cmpFun = cmpFun,
+                            k=100,
+                            numTh = 100,
+                            mustRemoveSingletons = True,
+                            title=title)
 
 
 

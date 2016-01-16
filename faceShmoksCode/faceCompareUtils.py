@@ -42,6 +42,43 @@ def l2Dist(x,y=None):
 
     return normSqX + normSqY - 2*np.dot(x, y.T)
 
+def mhDist(x, y=None, L=None):
+
+    # pdb.set_trace()
+
+    hasY = True
+    if type(y)==type(None):
+
+        y=x
+        hasY = False
+
+    hasM = True
+    if type(L)==type(None):
+
+        L = np.eye(x.shape[1])
+
+    assert type(x) == np.ndarray and type(y)==np.ndarray, 'x and y must be of type numpy.ndarray'
+    assert len(x.shape)==2 and len(y.shape)==2, "x and y must be matrices, i.e.: x.shape and y.shape must be of length 2"
+    assert x.shape[1]==y.shape[1], "x and y must have same number of columns"
+
+    d = x.shape[1]
+    n = x.shape[0]
+    m = y.shape[0]
+
+    x = np.dot(x, L)
+    y = np.dot(y, L)
+
+    normSqX = (x*x).sum(1)
+    if hasY:
+        normSqY = (y*y).sum(1)
+    else:
+        normSqY = normSqX.copy()
+
+    normSqX.resize((n,1))
+    normSqY.resize((1,m))
+
+    return normSqX + normSqY - 2*np.dot(x, y.T)
+
 
 
 
@@ -182,6 +219,7 @@ def testPerformance(DB, savePath,
     #
     # ents = [key.split('/')[0] for key in DKeys]
 
+    # pdb.set_trace()
 
     if mustRemoveSingletons:
 
@@ -200,7 +238,7 @@ def testPerformance(DB, savePath,
             entMat[ii,jj] = ents[ii]==ents[jj]
 
 
-    scoreMat = cmpFun(DArr)
+    scoreMat = cmpFun(DArr, DArr)
 
     SMat = entMat
     DMat = np.logical_not(entMat)
@@ -226,7 +264,7 @@ def testPerformance(DB, savePath,
 
 
 
-    plt.ioff()
+    plt.ion()
     SMatNoSelf = SMat
     for ii in xrange(SMatNoSelf.shape[0]):
         SMatNoSelf[ii,ii]=False
